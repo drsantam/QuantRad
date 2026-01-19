@@ -128,7 +128,13 @@ class RadiotherapyModalityChoices(models.TextChoices):
     EBRT = 'EBRT', 'External Beam Radiotherapy'
     BRT = 'BRT', 'Brachytherapy'
 
-
+class SimulationAppointmentTypes(models.TextChoices):
+    '''
+    Enum to store choices related to Simulation Appointment Types.
+    '''
+    'Practice' =  'Practice', 'Practice Session'
+    'Final' = 'Final', 'Final Scan Session' 
+    
 # Create your models here.
 
 class Patient(models.Model):
@@ -276,6 +282,66 @@ class RadiotherapyBooking(models.Model):
         self.full_clean()
         return super().save(*args, **kwargs)
 
-        
 
+
+class RadiotherapySimulation(models.Model):
+    '''
+    Model to store information about radiotherapy simulation performed for a Radiotherapy Booking
+    '''
+    radiotherapy_booking = models.ForeignKey(RadiotherapyBooking, on_delete=models.CASCADE, verbose_name="Radiotherapy Booking", help_text="Select the Radiotherapy Booking for which the simulation was performed")
+    simulation_appointment_type = models.CharField(max_length=256, verbose_name="Simulation Appointment Type", help_text="Enter the type of simulation appointment", choices=SimulationAppointmentTypes.choices)
+    date_of_simulation = models.DateField(verbose_name="Date of Simulation", help_text="Enter the date when the simulation was performed")
+    simulation_done = models.BooleanField(verbose_name="Simulation Done", help_text="Check if the simulation was done", default=False)
+    reason_why_simulation_not_done = models.TextField(null=True,blank=True,verbose_name = "Reason Why Simulation Not Done")
+    image_sequences = models.CharField(max_length=256, null=True, blank=True, verbose_name="Image Sequences", help_text="Enter the image sequences acquired during simulation")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "Radiotherapy Simulation"
+        verbose_name_plural = "Radiotherapy Simulations"
+
+    def __str__(self):
+        return f"Simulation for {self.radiotherapy_booking}"
+
+    def clean(self):
+        super().clean()
+        if not self.simulation_done:
+            if not self.reason_why_simulation_not_done or not self.reason_why_simulation_not_done.strip():
+                raise ValidationError({
+                    "reason_why_simulation_not_done": "Reason Why Simulation Not Done must be provided when Simulation Done is False."
+                })
+        else:
+            if self.reason_why_simulation_not_done and self.reason_why_simulation_not_done.strip():
+                raise ValidationError({
+                    "reason_why_simulation_not_done": "Reason Why Simulation Not Done must be empty when Simulation Done is True."
+                })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+
+class DICOMStudy(models.Model):
+    '''
+    Model to store information about DICOM studies acquired during simulation
+    '''
+    radiotherapy_simulation = models.ForeignKey(RadiotherapySimulation, on_delete=models.CASCADE, verbose_name="Radiotherapy Simulation", help_text="Select the Radiotherapy Simulation for which the DICOM study was acquired")
+    study_instance_uid = models.CharField(max_length=256, verbose_name="Study Instance UID", help_text="Enter the Study Instance UID of the DICOM study")
+    study_date_time = models.DateTimeField(verbose_name="Study Date Time", help_text="Enter the date and time when the DICOM study was acquired")
+    study_modality = models.CharField(max_length=256, verbose_name="Study Modality", help_text="Enter the modality of the DICOM study")
+    study_description = models.CharField(max_length=256, verbose_name="Study Description", help_text="Enter the description of the DICOM study")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created At")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Updated At")
+
+    class Meta:
+        verbose_name = "DICOM Study"
+        verbose_name_plural = "DICOM Studies"
+
+    def __str__(self):
+        return f"DICOM Study {self.study_instance_uid} for {self.radiotherapy_simulation}"
+
+        
     
+
+
